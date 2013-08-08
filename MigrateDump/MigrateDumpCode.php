@@ -18,11 +18,22 @@ class MigrateDumpCode extends CCodeModel
 	public function rules()
 	{
 		return array_merge(parent::rules(), array(
-			array('tableName,migrateName', 'required'),
-			array('migrateName', 'match', 'pattern' => '/^\w+$/'),
+			array('tableName', 'required'),
+			array('migrateName', 'autoFill'),
+			array('_migrateName','match','pattern' => '#m[0-9]{6}_[0-9]{6}_[a-zA-Z0-9\._]+#i'),
 			array('tableName','tableExists'),
 			array('undoTrancate', 'boolean'),
+			array('undoSql' , 'safe'),
 		));
+	}
+
+	public function autoFill($attribute,$params)
+	{
+		$v = $this->$attribute;
+		if (!preg_match('#[^a-zA-Z_][a-zA-Z]+#i',$v))
+		{
+			$this->$attribute = "fill_table_" . $this->tableName;
+		}
 	}
 
 	public function tableExists($attribute,$params)
@@ -31,8 +42,15 @@ class MigrateDumpCode extends CCodeModel
 		$table = H::tblWithPrefix($t);
 		if (!in_array($table, Yii::app()->db->schema->getTableNames()))
 		{
-			$this->addError($attribute,'Указанная таблица не существует');
+			$table = H::tblWithPrefix("{{" . $t . "}}");
+			if (!in_array($table, Yii::app()->db->schema->getTableNames()))
+			{
+				$this->addError($attribute,'Указанная таблица не существует');
+				return false;
+			}
 		}
+		$this->$attribute = $table;
+
 	}
 
 	public function attributeLabels()
